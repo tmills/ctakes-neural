@@ -3,8 +3,8 @@ package org.apache.ctakes.neural;
 import java.io.File;
 import java.io.FileNotFoundException;
 
-import org.cleartk.ml.python.keras.KerasStringOutcomeClassifierBuilder;
-import org.cleartk.ml.script.ScriptStringOutcomeDataWriter;
+import org.cleartk.ml.CleartkProcessingException;
+import org.cleartk.ml.util.featurevector.FeatureVector;
 
 /**
  * <br>
@@ -12,7 +12,7 @@ import org.cleartk.ml.script.ScriptStringOutcomeDataWriter;
  * @version 2.0.1
  * 
  */
-public class KerasStringFeatureDataWriter extends ScriptStringOutcomeDataWriter<KerasStringOutcomeClassifierBuilder>{
+public class KerasStringFeatureDataWriter extends ScriptStringFeatureDataWriter<KerasStringFeatureClassifierBuilder>{
 
   public KerasStringFeatureDataWriter(File outputDirectory)
       throws FileNotFoundException {
@@ -20,7 +20,13 @@ public class KerasStringFeatureDataWriter extends ScriptStringOutcomeDataWriter<
   }
 
   @Override
-  protected KerasStringOutcomeClassifierBuilder newClassifierBuilder() {
-    return new KerasStringOutcomeClassifierBuilder();
+  protected KerasStringFeatureClassifierBuilder newClassifierBuilder() {
+    return new KerasStringFeatureClassifierBuilder();
+  }
+
+  @Override
+  protected void writeEncoded(FeatureVector features, Integer outcome)
+      throws CleartkProcessingException {
+    return;
   }
 }

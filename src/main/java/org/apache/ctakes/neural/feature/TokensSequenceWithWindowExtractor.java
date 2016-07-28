@@ -31,19 +31,19 @@ public class TokensSequenceWithWindowExtractor implements FeatureExtractor1<Iden
     }
     
     for(BaseToken token : beforeTokens){
-      feats.add(new Feature(token.getCoveredText().toLowerCase()));
+      feats.add(new Feature(tokenToString(token)));
     }
     
     feats.add(new Feature("<e>"));
     for(BaseToken token : JCasUtil.selectCovered(BaseToken.class, target)){
-      feats.add(new Feature(token.getCoveredText().toLowerCase()));
+      feats.add(new Feature(tokenToString(token)));
     }
     feats.add(new Feature("</e>"));
     
     List<BaseToken> afterTokens = JCasUtil.selectFollowing(BaseToken.class, target, this.window);
     
     for(BaseToken token : afterTokens){
-      feats.add(new Feature(token.getCoveredText().toLowerCase()));
+      feats.add(new Feature(tokenToString(token)));
     }
     
     for(int i = afterTokens.size(); i < this.window; i++){
@@ -51,5 +51,10 @@ public class TokensSequenceWithWindowExtractor implements FeatureExtractor1<Iden
     }
     
     return feats;
+  }
+  
+  private static String tokenToString(BaseToken token){
+    String lower = token.getCoveredText().toLowerCase();
+    return lower.replace("\n", "<CR>").replace("\r", "<LF>");
   }
 }
