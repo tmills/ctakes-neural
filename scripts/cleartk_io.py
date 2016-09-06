@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import os, os.path
+import os, os.path, sys
 import subprocess
 
 
@@ -365,6 +365,15 @@ def read_bio_feats_with_alphabet(feat_string, feat_alphabet, read_only=True):
             feats.append( 2 )
             
     return feats[0] if len(feats) == 1 else feats
+
+def print_label(label):
+    print(label)
+    sys.stdout.flush()
+
+def debug(msg):
+    sys.stderr.write(msg)
+    sys.stderr.write('\n')
+    sys.stderr.flush()
 
 if __name__ == "__main__":
     (labels, feats) = read_multitask_liblinear('data_testing/multitask_assertion/train_and_test/')
