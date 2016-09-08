@@ -4,8 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 //import java.util.Locale;
 
-
-
 import org.apache.uima.UimaContext;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.factory.initializable.Initializable;
@@ -15,15 +13,11 @@ import org.cleartk.ml.Feature;
 import org.cleartk.ml.Instance;
 import org.cleartk.ml.encoder.outcome.StringToIntegerOutcomeEncoder;
 import org.cleartk.ml.jar.DataWriter_ImplBase;
-import org.cleartk.ml.script.ScriptStringOutcomeClassifier;
 import org.cleartk.ml.script.ScriptStringOutcomeClassifierBuilder;
 import org.cleartk.ml.util.featurevector.FeatureVector;
 
-public abstract class ScriptStringFeatureDataWriter
-//implements DataWriter<String> {
-//<T extends ScriptStringOutcomeClassifierBuilder<Y>,Y extends ScriptStringOutcomeClassifier> extends DirectoryDataWriter<T,Y> {
-<T extends ScriptStringOutcomeClassifierBuilder<? extends ScriptStringOutcomeClassifier>> 
-  extends DataWriter_ImplBase<T, FeatureVector, String,Integer> implements Initializable {
+public class ScriptStringFeatureDataWriter
+  extends DataWriter_ImplBase<ScriptStringOutcomeClassifierBuilder, FeatureVector, String,Integer> implements Initializable {
   
   public static final String PARAM_SCRIPT_DIR = "DataWriterScriptDirectory";
   @ConfigurationParameter(name=PARAM_SCRIPT_DIR)
@@ -63,5 +57,10 @@ public abstract class ScriptStringFeatureDataWriter
   protected void writeEncoded(FeatureVector features, Integer outcome)
       throws CleartkProcessingException {
     return;
+  }
+
+  @Override
+  protected ScriptStringOutcomeClassifierBuilder newClassifierBuilder() {
+    return new ScriptStringOutcomeClassifierBuilder();
   }
 }
