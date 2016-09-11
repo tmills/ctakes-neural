@@ -275,8 +275,8 @@ def fix_instance_len(inst, req_len):
         inst = inst[-req_len:]
     
 def split_sequence_line(line):
-    vals = line.split('|')
-    return vals[0], '|'.join(vals[1:])
+    (label_str, feats) = line.split(' | ')
+    return label_str.strip().split(' '), feats.strip().split(' ')
 
 def string_to_feature_sequence(token_str, alphabet, read_only=False):
     token_seq = token_str.split(" ")
@@ -304,29 +304,30 @@ def reverse_outcome_maps(outcome_maps):
     
     return rev
 
+## Read a line of the sequence file and map labels and features to ints
 def read_bio_sequence_data(working_dir):
     feat_alphabet = {"UNK":0}
     label_alphabet = {"O":0}  ## May have other tags but wil always have O and want that to be = to padded label
     labels = []
     feats = []
-    cur_labels = []
-    cur_feats = []
     
     for line in open(os.path.join(working_dir, 'training-data.libsvm')):
-        (label, token_str) = split_sequence_line(line.strip())
-        label = label.strip()
-        feat = token_str.strip()
-        if feat == 'EOS':
-            labels.append(cur_labels)
-            feats.append(cur_feats)
-            cur_labels = []
-            cur_feats = []
-        else:
+        (str_labels, str_feats) = split_sequence_line(line.strip())
+
+        cur_labels = []
+        for label in str_labels:
             if not label in label_alphabet:
                 label_alphabet[label] = len(label_alphabet)
-            
-            cur_labels.append( label_alphabet[label] )
+        cur_labels = [label_alphabet[label] for label in str_labels]
+
+        cur_feats = []
+        for feat in str_feats:
             cur_feats.append( read_bio_feats_with_alphabet(feat, feat_alphabet, read_only=False) )
+            if not feat in feat_alphabet:
+                feat_alphabet[feat] = len(feat_alphabet)      
+        
+        labels.append(cur_labels)
+        feats.append(cur_feats)
     
     ## turn labels from 1x|D| with domain size N to N x |D| boolean
     padded_labels = []
