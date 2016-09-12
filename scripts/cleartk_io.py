@@ -10,7 +10,7 @@ _UNK_STRING = "_UNK_OR_PADDING_"
 def string_label_to_label_vector(label_string, outcome_maps):    
     label_vec = []
     
-    all_labels = label_string.split('#')
+    all_labels = label_string.split(' ')
     
     if len(all_labels) == 1:
         return [label_string]
@@ -79,7 +79,7 @@ def read_outcome_maps(dirname):
         (index, label) = line.rstrip().split(' ')
         raw_outcomes.append(label)
         
-        for task_label in label.split('#'):
+        for task_label in label.split(' '):
             #print(task_label)
             (task, val) = task_label.rstrip().split("=")
             if not task in derived_maps:
@@ -168,7 +168,7 @@ def convert_multi_output_to_string(outcomes, outcome_list, lookup_map):
         str += label
         str += "="
         str += lookup_map[label][outcomes[ind]]
-        str += "#"
+        str += " "
         
     str = str[:-1]
     return str
@@ -235,10 +235,7 @@ def read_multitask_token_sequence_data(working_dir):
     outcome_list = []
     
     for line in open(os.path.join(working_dir, 'training-data.libsvm')):
-        (label, token_str) = split_sequence_line(line.strip())
-        label = label.strip()
-        
-        label_set = label.split("#")
+        (label_set, token_seq) = split_sequence_line(line.strip())
         instance_labels = []
         
         for outcome in label_set:
@@ -254,7 +251,7 @@ def read_multitask_token_sequence_data(working_dir):
             instance_labels.append( outcome_map[value] )
         
         label_seq.append(instance_labels)
-        instance_seq.append(string_to_feature_sequence(token_str, feature_alphabet))
+        instance_seq.append(list_to_feature_sequence(token_seq, feature_alphabet))
     
     pad_instances(instance_seq)
     
@@ -275,11 +272,20 @@ def fix_instance_len(inst, req_len):
         inst = inst[-req_len:]
     
 def split_sequence_line(line):
-    (label_str, feats) = line.split(' | ')
+    sections = line.split(' | ')
+    if len(sections) == 2:
+        (label_str, feats) = sections
+    else:
+        label_str = sections[0]
+        feats = ' | '.join(sections[1:])
+
     return label_str.strip().split(' '), feats.strip().split(' ')
 
 def string_to_feature_sequence(token_str, alphabet, read_only=False):
     token_seq = token_str.split(" ")
+    return list_to_feature_sequence(token_seq, alphabet, read_only)
+
+def list_to_feature_sequence(token_seq, alphabet, read_only=False):
     token_ind_seq = [] # np.zeros( len(token_seq), dtype=np.int )
     
     for ind,token in enumerate(token_seq):
