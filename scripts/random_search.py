@@ -25,17 +25,18 @@ class RandomSearch:
             n = int(np.ceil(B/max_iter/(s+1)*eta**s)) # initial number of configurations
             r = max_iter*eta**(-s) # initial number of iterations to run configurations for
 
-            print("Running s=%d, num configs=%d, num iters=%d" % (s, n, r) )
+            #print("Running s=%d, num configs=%d, num iters=%d" % (s, n, r) )
             
             #### Begin Finite Horizon Successive Halving with (n,r)
             T = [ self.config_fn() for i in range(n) ]
-            print("Starting this halving iteration with %d configs" % ( len(T) ) )
+            #print("Starting this halving iteration with %d configs" % ( len(T) ) )
             for i in range(s+1):
                 # Run each of the n_i configs for r_i iterations and keep best n_i/eta
                 n_i = n*eta**(-i)
                 r_i = int( r*eta**(i) )
                 val_losses = [ self.eval_fn(r_i, t) for t in T ]
                 T = [ T[i] for i in np.argsort(val_losses)[0:int( n_i/eta )] ]
-                print("After iteration %d T has %d configurations" % (s, len(T)))
+                #print("After iteration %d T has %d configurations" % (s, len(T)))
                 
             #### End Finite Horizon Successive Halving with (n,r)
+        return T[0]
