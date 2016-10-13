@@ -7,6 +7,7 @@ from keras.layers.wrappers import TimeDistributed
 from keras.optimizers import SGD, RMSprop
 from keras import backend as K
 from keras.callbacks import EarlyStopping
+from keras.regularizers import WeightRegularizer, l1, l2
 
 def get_mlp_model(dimension, num_outputs, layers=(64, 256, 256) ):
     model = Sequential()
@@ -163,72 +164,91 @@ def get_multitask_cnn(dimension, vocab_size, output_size_list, conv_layers = (64
             outputs.append( output )
     
     sgd = get_mlp_optimizer()
-    model = Model(input=input, output = outputs)
+    model = Model(input=[token_input, distance_input], output = outputs)
     model.compile(optimizer=sgd,
                  loss=losses)
     
     return model
 
-def get_rnn_model(dimension, vocab_size, num_outputs, layers=(128,), embed_dim=100):
+def get_bio_lstm_model(dimension, vocab_size, num_outputs, layers=(128,), embed_dim=100, go_backwards=False, activation='tanh', weights=None, lr=0.01):
     feat_input = Input(shape=(None,), dtype='int32', name='Main_Input')
     #label_input = Input(shape=(None,3), dtype='int32', name='Label_Input')
     
-    x = Embedding(input_dim=vocab_size, output_dim=embed_dim)(feat_input)
+    if weights is None:
+        x = Embedding(input_dim=vocab_size, output_dim=embed_dim)(feat_input)
+    else:
+        #print("Using pre-trained embeddings in uni-lstm model")
+        x = Embedding(input_dim=vocab_size, output_dim=embed_dim, weights=[weights])(feat_input)
      
     for layer_width in layers:
-        x = LSTM(layer_width, return_sequences=True)(x)    
+        x = LSTM(layer_width, return_sequences=True, go_backwards=go_backwards, activation=activation, W_regularizer=get_regularizer(), U_regularizer=get_regularizer())(x)
     
     
     if num_outputs == 1:
-        activation = 'sigmoid' 
+        out_activation = 'sigmoid' 
         loss = 'binary_crossentropy'
     else:
-        activation = 'softmax'
+        out_activation = 'softmax'
         loss = 'categorical_crossentropy'
     
-    output = SimpleRNN(num_outputs, return_sequences=True, activation=activation)(x)
+    output = SimpleRNN(num_outputs, return_sequences=True, activation=out_activation, go_backwards=go_backwards)(x)
+    #output = TimeDistributed(Dense(num_outputs))(x)
     
-#    layer_merge = Merge(mode='concat', concat_axis=-1)([x,label_input])
-    
-#    output = TimeDistributed(Dense(num_outputs, activation=activation))(layer_merge)
-    
-    sgd = get_mlp_optimizer()
-    optimizer = RMSprop(lr=0.01, rho=0.9, epsilon=1e-08)
+    #sgd = get_mlp_optimizer()
+    optimizer = RMSprop(lr=lr, rho=0.9, epsilon=1e-08)
     
     model = Model(input=feat_input, output = output)
     model.compile(optimizer=optimizer,
                   loss = loss,
                   metrics=['accuracy'])
+
+    return model
+
+def get_bio_bilstm_model(dimension, vocab_size, num_outputs, layers=(128,), embed_dim=100, go_backwards=False, activation='tanh', weights=None, lr=0.01):
+    feat_input = Input(shape=(None,), dtype='int32', name='Main_Input')
     
-    ## This is known to be working but not as flexible: can delete when functional
-    ## version is fully running -- still working on integrating previous time step
-    ## classification as a feature
-#     model = Sequential()
-#     model.add(Embedding(input_dim=vocab_size,
-#                       output_dim=embed_dim,
-#                       #input_length=dimension[1],
-#                       dropout=0.5))
-#     model.add(LSTM(layers[0],
-#                  return_sequences=True,
-#                  #input_length=dimension[1],
-#                  input_dim=embed_dim))
-#     model.add(TimeDistributed(Dense(num_outputs)))
-#     model.add(Activation('softmax'))
-# 
-#     optimizer = RMSprop(lr=0.01,
-#                       rho=0.9, epsilon=1e-08)
-#     model.compile(loss='categorical_crossentropy',
-#                 optimizer=optimizer,
-#                 metrics=['accuracy'])
-            
+    if weights is None:
+        x = Embedding(input_dim=vocab_size, output_dim=embed_dim)(feat_input)
+    else:
+        print("Using pre-trained embeddings in bilstm model")
+        x = Embedding(input_dim=vocab_size, output_dim=embed_dim, weights=[weights])(feat_input)
+    
+    right = left = x
+    for layer_width in layers:
+        left = LSTM(layer_width, return_sequences=True, go_backwards=False, activation=activation, W_regularizer=get_regularizer(), U_regularizer=get_regularizer())(left)
+        right = LSTM(layer_width, return_sequences=True, go_backwards=True, activation=activation, W_regularizer=get_regularizer(), U_regularizer=get_regularizer())(right)
+        
+    x = Merge(mode='concat')([left, right])
+    
+    if num_outputs == 1:
+        out_activation = 'sigmoid' 
+        loss = 'binary_crossentropy'
+    else:
+        out_activation = 'softmax'
+        loss = 'categorical_crossentropy'
+    
+    output = SimpleRNN(num_outputs, return_sequences=True, activation=out_activation, go_backwards=go_backwards)(x)
+    #output = TimeDistributed(Dense(num_outputs))(x)
+    
+    #sgd = get_mlp_optimizer()
+    optimizer = RMSprop(lr=lr, rho=0.9, epsilon=1e-08)
+    
+    model = Model(input=feat_input, output = output)
+    model.compile(optimizer=optimizer,
+                  loss = loss,
+                  metrics=['accuracy'])
 
     return model
 
 def get_early_stopper():
-    return EarlyStopping(monitor='val_loss', patience=1, verbose=0, mode='auto')
+    return EarlyStopping(monitor='val_loss', patience=2, verbose=0, mode='auto')
     
 def get_mlp_optimizer():
-    return SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+    return SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
 def max_1d(X):
     return K.max(X, axis=1)
+
+def get_regularizer(l1=0.01, l2=0.01):
+    return WeightRegularizer(l1=l1, l2=l2)
+

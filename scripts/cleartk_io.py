@@ -333,20 +333,27 @@ def read_bio_sequence_data(working_dir):
                 feat_alphabet[feat] = len(feat_alphabet)      
         
         labels.append(cur_labels)
-        feats.append(cur_feats)
-    
-    ## turn labels from 1x|D| with domain size N to N x |D| boolean
-    padded_labels = []
-    for instance in labels:
-        padded_instance = []
-        for output in instance:
-            label_nodes = [0] * len(label_alphabet)
-            label_nodes[output] = 1
-            padded_instance.append(label_nodes)
-        padded_labels.append(padded_instance)
+        feats.append(np.array(cur_feats))
         
-    return padded_labels, label_alphabet, feats, feat_alphabet
+    return labels, label_alphabet, feats, feat_alphabet
 
+def expand_labels(label_matrix, label_alphabet):
+    ''' If we're given a matrix of labels for sequence instances, with instances in the rows and
+        time steps in the columns, convert into the representation where each time step has
+        boolean variables: from N x M to N x D x M where D is the number of possible labels
+        '''
+    padded_labels = np.zeros((label_matrix.shape[0], label_matrix.shape[1], len(label_alphabet)))
+    for instance_ind in range(label_matrix.shape[0]):
+        instance = label_matrix[instance_ind]
+        padded_instance = []
+        for token_ind,output in enumerate(instance):
+            padded_labels[instance_ind, token_ind, output] = 1
+#            label_nodes = [0] * len(label_alphabet)
+#            label_nodes[output] = 1
+#            padded_instance.append(label_nodes)
+#        padded_labels.append(np.array(padded_instance))
+    return padded_labels
+    
 def read_bio_feats_with_alphabet(feat_string, feat_alphabet, read_only=True):
     feats = []
     
@@ -373,6 +380,26 @@ def read_bio_feats_with_alphabet(feat_string, feat_alphabet, read_only=True):
             
     return feats[0] if len(feats) == 1 else feats
 
+def read_embeddings(filename, alphabet):
+    vocab_size = len(alphabet)
+    dims = -1
+    
+    with open(filename, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if dims < 0:
+                vals = line.split()
+                #vocab_size = int(vals[0])
+                dims = int(vals[1])
+                embed_matrix = np.zeros( (vocab_size, dims) )
+            else:
+                vec_list = line.split()
+                if vec_list[0] in alphabet:
+                    vec = np.array( [float(element) for element in vec_list[1:]] )
+                    embed_matrix[ alphabet[vec_list[0]]] = vec
+                    
+    return embed_matrix
+                
 def print_label(label):
     print(label)
     sys.stdout.flush()
