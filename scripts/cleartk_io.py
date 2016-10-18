@@ -208,24 +208,52 @@ def read_token_sequence_data(working_dir):
     instance_seq = []
     
     for line in open(os.path.join(working_dir, 'training-data.libsvm')):
-        (label, token_str) = split_sequence_line(line.strip())
-        label = label.strip()
+        (label, token_str) = split_sequence_line_singleLabel(line.strip())
         
         if not label in label_alphabet:
             label_alphabet[label] = len(label_alphabet)
         
         label_ind = label_alphabet[label]
         ## So that numpy turns it into a (n,1) 2d array instead of a (n,) 1d array
-        label_seq.append([label_ind])
+        label_seq.append(label_ind)
         
-        token_ind_seq = string_to_feature_sequence(token_str.strip(), feature_alphabet)
+        token_ind_seq = string_to_feature_sequence2(token_str, feature_alphabet)
         instance_seq.append(token_ind_seq)
     
     ## If we don't pad the shorter instances numpy conversion won't be able to turn it into a 2d array 
     pad_instances(instance_seq)
     
     
-    return np.array(label_seq), label_alphabet, np.array(instance_seq), feature_alphabet
+    return label_seq, label_alphabet, np.array(instance_seq), feature_alphabet
+
+def read_token_and_pos_sequence_data(working_dir):
+    feature_alphabet = {}
+    label_alphabet = {}
+    pos_alphabet = {}
+    label_seq = []
+    instance_seq = []
+    pos_seq = []
+    
+    for line in open(os.path.join(working_dir, 'training-data.libsvm')):
+        (label, token_str) = split_sequence_line_singleLabel(line.strip())
+        
+        if not label in label_alphabet:
+            label_alphabet[label] = len(label_alphabet)
+        
+        label_ind = label_alphabet[label]
+        ## So that numpy turns it into a (n,1) 2d array instead of a (n,) 1d array
+        label_seq.append(label_ind)
+        
+        (token_ind_seq, pos_ind_seq) = string_to_feature_sequence(token_str, feature_alphabet, pos_alphabet)
+        instance_seq.append(token_ind_seq)
+        pos_seq.append(pos_ind_seq)
+    
+    ## If we don't pad the shorter instances numpy conversion won't be able to turn it into a 2d array 
+    pad_instances(instance_seq)
+    pad_instances(pos_seq)
+    
+    
+    return label_seq, label_alphabet, np.array(instance_seq), feature_alphabet, np.array(pos_seq), pos_alphabet
         
 def read_multitask_token_sequence_data(working_dir):
     feature_alphabet = {_UNK_STRING:0}
@@ -281,9 +309,48 @@ def split_sequence_line(line):
 
     return label_str.strip().split(' '), feats.strip().split(' ')
 
-def string_to_feature_sequence(token_str, alphabet, read_only=False):
-    token_seq = token_str.split(" ")
+def split_sequence_line_singleLabel(line):
+    sections = line.split(' | ')
+    if len(sections) == 2:
+        (label_str, feats) = sections
+    else:
+        label_str = sections[0]
+        feats = ' | '.join(sections[1:])
+
+    return label_str.strip(), feats.strip().split(' ')
+
+def string_to_feature_sequence2(token_str, alphabet, read_only=False):
+    token_seq = token_str
     return list_to_feature_sequence(token_seq, alphabet, read_only)
+    
+def string_to_feature_sequence(token_str, token_alphabet, pos_alphabet, read_only=False):
+	token_ind_seq = []
+	pos_ind_seq = []
+	
+	for ind,str in enumerate(token_str):
+		if ("|" in str and len(str)>1 ):
+			token,pos = str.split("|")
+		else:
+			token = str
+			pos = "null"
+		if not token in token_alphabet:
+			if not read_only:
+				token_alphabet[token]=len(token_alphabet)
+				token_ind_seq.append(token_alphabet[token])
+			else:
+				token_ind_seq.append(0)
+		else:
+			token_ind_seq.append(token_alphabet[token])
+			
+		if not pos in pos_alphabet:
+			if not read_only:
+				pos_alphabet[pos]=len(pos_alphabet)
+				pos_ind_seq.append(pos_alphabet[pos])
+			else:
+				pos_ind_seq.append(0)
+		else:
+			pos_ind_seq.append(pos_alphabet[pos])
+	return token_ind_seq, pos_ind_seq
 
 def list_to_feature_sequence(token_seq, alphabet, read_only=False):
     token_ind_seq = [] # np.zeros( len(token_seq), dtype=np.int )
