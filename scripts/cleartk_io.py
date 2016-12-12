@@ -37,7 +37,12 @@ def get_data_dimensions(data_file):
     return (file_len, num_feats)
 
 def flatten_outputs(Y):
+
+    if Y.ndim == 1:
+        Y = np.expand_dims(Y, 1)
+        
     maxes = Y.max(0)
+
     #print("Maxes = %s" % (maxes) )
     reqd_dims = 0
     indices = [0]
@@ -223,7 +228,6 @@ def read_token_sequence_data(working_dir):
     ## If we don't pad the shorter instances numpy conversion won't be able to turn it into a 2d array 
     pad_instances(instance_seq)
     
-    
     return label_seq, label_alphabet, np.array(instance_seq), feature_alphabet
 
 def read_token_and_pos_sequence_data(working_dir):
@@ -323,34 +327,37 @@ def string_to_feature_sequence2(token_str, alphabet, read_only=False):
     token_seq = token_str
     return list_to_feature_sequence(token_seq, alphabet, read_only)
     
-def string_to_feature_sequence(token_str, token_alphabet, pos_alphabet, read_only=False):
-	token_ind_seq = []
-	pos_ind_seq = []
-	
-	for ind,str in enumerate(token_str):
-		if ("|" in str and len(str)>1 ):
-			token,pos = str.split("|")
-		else:
-			token = str
-			pos = "null"
-		if not token in token_alphabet:
-			if not read_only:
-				token_alphabet[token]=len(token_alphabet)
-				token_ind_seq.append(token_alphabet[token])
-			else:
-				token_ind_seq.append(0)
-		else:
-			token_ind_seq.append(token_alphabet[token])
-			
-		if not pos in pos_alphabet:
-			if not read_only:
-				pos_alphabet[pos]=len(pos_alphabet)
-				pos_ind_seq.append(pos_alphabet[pos])
-			else:
-				pos_ind_seq.append(0)
-		else:
-			pos_ind_seq.append(pos_alphabet[pos])
-	return token_ind_seq, pos_ind_seq
+def string_to_feature_sequence(token_str, token_alphabet, pos_alphabet=None, read_only=False):
+    token_ind_seq = []
+    pos_ind_seq = []
+    
+    for ind,str in enumerate(token_str):
+        if ("|" in str and len(str)>1 ):
+            token,pos = str.split("|")
+        else:
+            token = str
+            pos = None
+            
+        if not token in token_alphabet:
+            if not read_only:
+                token_alphabet[token]=len(token_alphabet)
+                token_ind_seq.append(token_alphabet[token])
+            else:
+                token_ind_seq.append(0)
+        else:
+            token_ind_seq.append(token_alphabet[token])
+            
+        if pos is not None and pos_alphabet is not None:
+            if not pos in pos_alphabet:
+                if not read_only:
+                    pos_alphabet[pos]=len(pos_alphabet)
+                    pos_ind_seq.append(pos_alphabet[pos])
+                else:
+                    pos_ind_seq.append(0)
+            else:
+                pos_ind_seq.append(pos_alphabet[pos])
+                
+    return token_ind_seq, pos_ind_seq
 
 def list_to_feature_sequence(token_seq, alphabet, read_only=False):
     token_ind_seq = [] # np.zeros( len(token_seq), dtype=np.int )
