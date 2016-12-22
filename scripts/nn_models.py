@@ -77,23 +77,36 @@ def get_multitask_mlp(dimension, vocab_size, output_size_list, fc_layers = (64,)
     
     return model
 
-def get_cnn_model(dimension, vocab_size, num_outputs, conv_layers = (64,), fc_layers=(64, 64, 256), embed_dim=200, filter_width=3 ):
+def get_cnn_model(dimension, vocab_size, num_outputs, conv_layers = (64,), fc_layers=(64, 64, 256), embed_dim=200, filter_widths=(3,) ):
     sgd = get_mlp_optimizer()
 
     input = Input(shape=(dimension[1],), dtype='int32', name='Main_Input')   
     x = Embedding(input_dim=vocab_size, output_dim=embed_dim, input_length=dimension[1])(input)
 
-    ## Convolutional layers:
-    x = (Convolution1D(conv_layers[0], filter_width, activation='relu'))(x)
+    ## FIXME: allow for filter_width to be a tuple like in the multitask version.
+    convs = []
+    for width in filter_widths:
+        conv = Convolution1D(conv_layers[0], width, activation='relu', init='uniform')(x)
+        pooled = Lambda(max_1d, output_shape=(conv_layers[0],))(conv)
+        convs.append(pooled)
+    
+    if len(convs) > 1:
+        x = Merge(mode='concat') (convs)
+    else:
+        x = convs[0]
 
     for nb_filter in conv_layers[1:]:
-        x = Convolution1D(nb_filter, filter_width, activation='relu')(x)
-
-    x = Lambda(max_1d, output_shape=(conv_layers[-1],))(x)
-
-    
-    #model.add(MaxPooling1D())
-
+        convs = []
+        for width in filter_widths:
+            conv = Convolution1D(nb_filter, filter_width, activation='relu', init='uniform')(x)    
+            pooled = Lambda(max_1d, output_shape=(nb_filter,))(conv)
+            convs.append(pooled)
+        
+        if len(convs) > 1:
+            x = Merge(mode='concat')(convs)
+        else:
+            x = convs[0]
+       
     for num_nodes in fc_layers:
         x = Dense(num_nodes, init='uniform')(x)
         x = Activation('relu')(x)
@@ -114,10 +127,28 @@ def get_cnn_model(dimension, vocab_size, num_outputs, conv_layers = (64,), fc_la
     
     return model
 
-def get_multitask_cnn(dimension, vocab_size, output_size_list, conv_layers = (64,), fc_layers = (64,), embed_dim=200, filter_widths=(3,) ):
-    input = Input(shape=(dimension[1],), dtype='int32', name='Main_Input')
+def get_multitask_cnn(dimension, vocab_size, output_size_list, conv_layers = (64,), fc_layers = (64,), embed_dim=(200,), filter_widths=(3,)):
+
+    if type(embed_dim) is int:
+        num_views = 1
+        embed_dim = [embed_dim]
+    else:
+        num_views = len(embed_dim)
     
-    x = Embedding(input_dim=vocab_size, output_dim=embed_dim, input_length=dimension[1])(input)
+    if type(vocab_size) is int:
+        vocab_size = [vocab_size]
+    
+    input_views = []
+    embeddings = []
+    
+    for view in range(num_views):
+        input_views.append(Input(shape=(dimension[1],), dtype='int32', name='Main_Input_%d' % view))
+        embeddings.append(Embedding(input_dim=vocab_size[view], output_dim=embed_dim[view], input_length=dimension[1])(input_views[-1]))
+    
+    if len(embeddings) > 1:
+        x = Merge(mode='concat')(embeddings)
+    else:
+        x = embeddings[0]
     
     convs = []
     for width in filter_widths:
@@ -164,7 +195,7 @@ def get_multitask_cnn(dimension, vocab_size, output_size_list, conv_layers = (64
             outputs.append( output )
     
     sgd = get_mlp_optimizer()
-    model = Model(input=[token_input, distance_input], output = outputs)
+    model = Model(input=input_views, output = outputs)
     model.compile(optimizer=sgd,
                  loss=losses)
     
