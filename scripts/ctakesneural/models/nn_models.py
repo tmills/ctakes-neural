@@ -77,7 +77,7 @@ def get_multitask_mlp(dimension, vocab_size, output_size_list, fc_layers = (64,)
     
     return model
 
-def get_cnn_model(dimension, vocab_size, num_outputs, conv_layers = (64,), fc_layers=(64, 64, 256), embed_dim=200, filter_widths=(3,) ):
+def get_cnn_model(dimension, vocab_size, num_outputs, conv_layers = (64,), fc_layers=(64, 64, 256), embed_dim=200, filter_widths=(3,)):
     sgd = get_mlp_optimizer()
 
     input = Input(shape=(dimension[1],), dtype='int32', name='Main_Input')   
@@ -122,6 +122,7 @@ def get_cnn_model(dimension, vocab_size, num_outputs, conv_layers = (64,), fc_la
 
     sgd = get_mlp_optimizer()
     model = Model(input=input, output=output)
+        
     model.compile(optimizer = sgd,
                   loss = loss)
     
@@ -283,3 +284,12 @@ def max_1d(X):
 def get_regularizer(l1=0.01, l2=0.01):
     return WeightRegularizer(l1=l1, l2=l2)
 
+class OptimizableModel:
+    def get_random_config(self):
+        raise NotImplementedError("Subclass must implement this method!")
+    
+    def run_one_eval(self, epochs, config,  train_x, train_y, valid_x, valid_y):
+        raise NotImplementedError("Subclass must implement run_one_eval()")
+
+    def get_model(self):
+        raise NotImplementedError("Subclass must implement get_model()")
