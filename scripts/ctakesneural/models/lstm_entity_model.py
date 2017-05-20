@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from ctakesneural.models import nn_models
 from ctakesneural.models.nn_models import OptimizableModel
 from ctakesneural.io import cleartk_io as ctk_io
 from keras.preprocessing.sequence import pad_sequences
@@ -7,8 +8,12 @@ from keras.models import Model
 from keras.layers import Input, Dense, Embedding, Merge, LSTM
 
 import numpy as np
+import os.path
+import pickle
 import random
 import sys
+from zipfile import ZipFile
+
 
 class LstmEntityModel(OptimizableModel):
     def __init__(self, configs=None):
@@ -91,7 +96,7 @@ class LstmEntityModel(OptimizableModel):
                    
         self.label_alphabet = label_alphabet
         self.feats_alphabet = feats_alphabet
-        return feats, train_y
+        return feats, train_y, feats_alphabet, label_alphabet
     
     def read_test_instance(self, line, num_feats=-1):
         feats = [ctk_io.read_bio_feats_with_alphabet(feat, self.feats_alphabet) for feat in line.split()]
@@ -113,6 +118,8 @@ class LstmEntityModel(OptimizableModel):
             train_y,
             nb_epoch=epochs,
             batch_size=config['batch_size'],
+            validation_split=0.1,
+            callbacks=[nn_models.get_early_stopper()],
             verbose=1)
         return model, history
         
@@ -120,7 +127,7 @@ def main(args):
     if args[0] == 'train':
         working_dir = args[1]
         model = LstmEntityModel()
-        train_x, train_y = model.read_training_instances(working_dir)
+        train_x, train_y, feature_alphabet, label_alphabet = model.read_training_instances(working_dir)
         trained_model, history = model.train_model_for_data(train_x, train_y, 80, model.get_default_config())
         trained_model.save(os.path.join(working_dir, 'model.h5'), overwrite=True)
         
