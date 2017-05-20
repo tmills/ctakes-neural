@@ -4,7 +4,7 @@ from ctakesneural.models import nn_models
 from ctakesneural.models.nn_models import OptimizableModel
 from ctakesneural.io import cleartk_io as ctk_io
 from keras.preprocessing.sequence import pad_sequences
-from keras.models import Model
+from keras.models import Model, load_model
 from keras.layers import Input, Dense, Embedding, Merge, LSTM
 
 import numpy as np
@@ -138,6 +138,43 @@ def main(args):
         with ZipFile(os.path.join(working_dir, 'script.model'), 'w') as myzip:
             myzip.write(os.path.join(working_dir, 'model.h5'), 'model.h5')
             myzip.write(os.path.join(working_dir, 'alphabets.pkl'), 'alphabets.pkl')
+    elif args[0] == 'classify':
+        working_dir = args[1]
+
+        with ZipFile(os.path.join(working_dir, 'script.model'), 'r') as myzip:
+            myzip.extract('model.h5', working_dir)
+            myzip.extract('alphabets.pkl', working_dir)
+
+        (feature_alphabet, label_alphabet) = pickle.load( open(os.path.join(working_dir, 'alphabets.pkl'), 'r' ) )
+        label_lookup = {val:key for (key,val) in label_alphabet.iteritems()}
+        model = load_model(os.path.join(working_dir, "model.h5"))       
+        input_seq_len = model.layers[0].input_shape[1]
+     
+        while True:
+            try:
+                line = sys.stdin.readline().rstrip()
+                if not line:
+                    break
+                 
+                ## Need one extra dimension to parse liblinear string and will remove after
+                (feat_seq, pos_seq) = ctk_io.string_to_feature_sequence(line.split(), feature_alphabet, read_only=True)
+                ctk_io.fix_instance_len( feat_seq , len(feat_seq)+2)
+                feats = [feat_seq]
+                 
+                outcomes = []
+                out = model.predict( np.array(feats), batch_size=1, verbose=0)
+                if len(out[0]) == 1:
+                    pred_class = 1 if out[0][0] > 0.5 else 0
+                else:
+                    pred_class = out[0].argmax()
+                 
+                label = label_lookup[pred_class]
+    #             print("out = %s, pred_class=%s" % (str(out), pred_class) )
+                print(label)
+                sys.stdout.flush()
+            except Exception as e:
+                print("Exception %s" % (e) )
+        
     else:
         sys.stderr.write("Do not recognize args[0] command argument: %s\n" % (args[0]))
         sys.exit(-1)
