@@ -288,8 +288,27 @@ class OptimizableModel:
     def get_random_config(self):
         raise NotImplementedError("Subclass must implement this method!")
     
-    def run_one_eval(self, epochs, config,  train_x, train_y, valid_x, valid_y):
+    def run_one_eval(self, epochs, config, params):
         raise NotImplementedError("Subclass must implement run_one_eval()")
 
-    def get_model(self):
+    def get_model(self, dimension, vocab_size, num_outputs, params):
         raise NotImplementedError("Subclass must implement get_model()")
+
+    def read_training_instances(self, filename):
+        raise NotImplementedError("Subclass should implement this to turn a line of training data into a vector, label tuple for training.")
+    
+    def read_test_instance(self, line):
+        raise NotImplementedError("Subclass should implement this to turn a line of test data into a vector for classification.")
+    
+    def get_default_optimizer(self):
+        return SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+
+    def get_default_regularizer(self):
+        return WeightRegularizer(l2=1.0)
+
+    def param_or_default(self, dict, param, default):
+        if dict.has_key(param):
+            return dict[param]
+        else:
+            return default
+        
