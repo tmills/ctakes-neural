@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from keras.models import Sequential, Model
+from keras.models import Sequential, Model, load_model
 from keras.layers import Input, Dense, Dropout, Activation, Convolution1D, MaxPooling1D, Lambda, Embedding, Merge
 from keras.layers import SimpleRNN, LSTM, TimeDistributedDense
 from keras.layers.wrappers import TimeDistributed
@@ -8,6 +8,9 @@ from keras.optimizers import SGD, RMSprop
 from keras import backend as K
 from keras.callbacks import EarlyStopping
 from keras.regularizers import WeightRegularizer, l1, l2
+from zipfile import ZipFile
+import os.path
+import pickle
 
 def get_mlp_model(dimension, num_outputs, layers=(64, 256, 256) ):
     model = Sequential()
@@ -312,3 +315,12 @@ class OptimizableModel:
         else:
             return default
         
+def read_model(working_dir):
+    with ZipFile(os.path.join(working_dir, 'script.model'), 'r') as myzip:
+        myzip.extract('model_weights.h5', working_dir)
+        myzip.extract('model.pkl', working_dir)
+    
+    lstm_model = pickle.load( open(os.path.join(working_dir, 'model.pkl'), 'r' ) )
+    lstm_model.keras_model = load_model(os.path.join(working_dir, "model_weights.h5"))       
+    lstm_model.label_lookup = {val:key for (key,val) in lstm_model.label_alphabet.iteritems()}
+    return lstm_model

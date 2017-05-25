@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from ctakesneural.models import nn_models
-from ctakesneural.models.nn_models import OptimizableModel
+from ctakesneural.models.nn_models import OptimizableModel, read_model
 from ctakesneural.io import cleartk_io as ctk_io
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model, load_model
@@ -96,7 +96,7 @@ class LstmEntityModel(OptimizableModel):
                    
         self.label_alphabet = label_alphabet
         self.feats_alphabet = feats_alphabet
-        return feats, train_y, feats_alphabet, label_alphabet
+        return feats, train_y
     
     def read_test_instance(self, line, num_feats=-1):
         feats = [ctk_io.read_bio_feats_with_alphabet(feat, self.feats_alphabet) for feat in line.split()]
@@ -122,58 +122,55 @@ class LstmEntityModel(OptimizableModel):
             callbacks=[nn_models.get_early_stopper()],
             verbose=1)
         return model, history
-        
+    
+    def write_model(self, working_dir, trained_model):
+        trained_model.save(os.path.join(working_dir, 'model_weights.h5'), overwrite=True)
+        fn = open(os.path.join(working_dir, 'model.pkl'), 'w')
+        pickle.dump(self, fn)
+        fn.close()
+
+        with ZipFile(os.path.join(working_dir, 'script.model'), 'w') as myzip:
+            myzip.write(os.path.join(working_dir, 'model_weights.h5'), 'model_weights.h5')
+            myzip.write(os.path.join(working_dir, 'model.pkl'), 'model.pkl')
+
+    def classify_line(self, line):
+        feat_seq = ctk_io.string_to_feature_sequence2(line.split(), self.feats_alphabet, read_only=True)
+        ctk_io.fix_instance_len( feat_seq , len(feat_seq)+2)
+        feats = [feat_seq]
+        outcomes = []
+        out = self.keras_model.predict( np.array(feats), batch_size=1, verbose=0)
+        if len(out[0]) == 1:
+            pred_class = 1 if out[0][0] > 0.5 else 0
+        else:
+            pred_class = out[0].argmax()
+         
+        return self.label_lookup[pred_class]
+
 def main(args):
     if args[0] == 'train':
         working_dir = args[1]
         model = LstmEntityModel()
-        train_x, train_y, feature_alphabet, label_alphabet = model.read_training_instances(working_dir)
+        train_x, train_y = model.read_training_instances(working_dir)
         trained_model, history = model.train_model_for_data(train_x, train_y, 80, model.get_default_config())
-        trained_model.save(os.path.join(working_dir, 'model.h5'), overwrite=True)
+        model.write_model(working_dir, trained_model)
         
-        fn = open(os.path.join(working_dir, 'alphabets.pkl'), 'w')
-        pickle.dump( (feature_alphabet, label_alphabet), fn)
-        fn.close()
-
-        with ZipFile(os.path.join(working_dir, 'script.model'), 'w') as myzip:
-            myzip.write(os.path.join(working_dir, 'model.h5'), 'model.h5')
-            myzip.write(os.path.join(working_dir, 'alphabets.pkl'), 'alphabets.pkl')
     elif args[0] == 'classify':
         working_dir = args[1]
-
-        with ZipFile(os.path.join(working_dir, 'script.model'), 'r') as myzip:
-            myzip.extract('model.h5', working_dir)
-            myzip.extract('alphabets.pkl', working_dir)
-
-        (feature_alphabet, label_alphabet) = pickle.load( open(os.path.join(working_dir, 'alphabets.pkl'), 'r' ) )
-        label_lookup = {val:key for (key,val) in label_alphabet.iteritems()}
-        model = load_model(os.path.join(working_dir, "model.h5"))       
-        input_seq_len = model.layers[0].input_shape[1]
+        model = read_model(working_dir)
      
         while True:
             try:
                 line = sys.stdin.readline().rstrip()
                 if not line:
                     break
-                 
-                ## Need one extra dimension to parse liblinear string and will remove after
-                (feat_seq, pos_seq) = ctk_io.string_to_feature_sequence(line.split(), feature_alphabet, read_only=True)
-                ctk_io.fix_instance_len( feat_seq , len(feat_seq)+2)
-                feats = [feat_seq]
-                 
-                outcomes = []
-                out = model.predict( np.array(feats), batch_size=1, verbose=0)
-                if len(out[0]) == 1:
-                    pred_class = 1 if out[0][0] > 0.5 else 0
-                else:
-                    pred_class = out[0].argmax()
-                 
-                label = label_lookup[pred_class]
-    #             print("out = %s, pred_class=%s" % (str(out), pred_class) )
+                
+                label = model.classify_line(line)
                 print(label)
                 sys.stdout.flush()
             except Exception as e:
                 print("Exception %s" % (e) )
+    elif args[0] == 'optimize':
+        working_dir = args[1]
         
     else:
         sys.stderr.write("Do not recognize args[0] command argument: %s\n" % (args[0]))
