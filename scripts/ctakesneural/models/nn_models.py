@@ -291,7 +291,7 @@ class OptimizableModel:
     def get_random_config(self):
         raise NotImplementedError("Subclass must implement this method!")
     
-    def run_one_eval(self, epochs, config, params):
+    def run_one_eval(self, train_x, train_y, valid_x, valid_y, epochs, config):
         raise NotImplementedError("Subclass must implement run_one_eval()")
 
     def get_model(self, dimension, vocab_size, num_outputs, params):

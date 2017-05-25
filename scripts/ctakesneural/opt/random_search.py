@@ -5,13 +5,16 @@
 
 import numpy as np
 import time
+from sklearn.cross_validation import train_test_split
 
 class RandomSearch:
-    def __init__(self, config_fn, eval_fn):
-        self.config_fn = config_fn
-        self.eval_fn = eval_fn
-    
-    def optimize(self, param_dict, max_iter=81):
+    def __init__(self, model, train_x, train_y):
+#        self.config_fn = config_fn
+#        self.eval_fn = eval_fn
+        self.model = model
+        self.train_x, self.valid_x, self.train_y, self.valid_y = train_test_split(train_x, train_y, test_size=0.2, random_state=18)
+        
+    def optimize(self, max_iter=81):
         start_time = time.time()
         
         eta = 3 # defines downsampling rate (default=3)
@@ -28,13 +31,13 @@ class RandomSearch:
             #print("Running s=%d, num configs=%d, num iters=%d" % (s, n, r) )
             
             #### Begin Finite Horizon Successive Halving with (n,r)
-            T = [ self.config_fn() for i in range(n) ]
+            T = [ self.model.get_random_config() for i in range(n) ]
             #print("Starting this halving iteration with %d configs" % ( len(T) ) )
             for i in range(s+1):
                 # Run each of the n_i configs for r_i iterations and keep best n_i/eta
                 n_i = n*eta**(-i)
                 r_i = int( r*eta**(i) )
-                val_losses = [ self.eval_fn(r_i, t, param_dict) for t in T ]
+                val_losses = [ self.model.run_one_eval(self.train_x, self.train_y, self.valid_x, self.valid_y, r_i, t) for t in T ]
                 T = [ T[i] for i in np.argsort(val_losses)[0:int( n_i/eta )] ]
                 #print("After iteration %d T has %d configurations" % (s, len(T)))
                 

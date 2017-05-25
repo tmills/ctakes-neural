@@ -3,6 +3,8 @@
 from ctakesneural.models import nn_models
 from ctakesneural.models.nn_models import OptimizableModel, read_model
 from ctakesneural.io import cleartk_io as ctk_io
+from ctakesneural.opt.random_search import RandomSearch
+
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model, load_model
 from keras.layers import Input, Dense, Embedding, Merge, LSTM
@@ -26,20 +28,20 @@ class LstmEntityModel(OptimizableModel):
         else:
             self.configs = configs
 
-    def get_model(self, dimension, vocab_size, num_outputs, params):
-        layers = params['layers']
+    def get_model(self, dimension, vocab_size, num_outputs, config):
+        layers = config['layers']
         
-        optimizer = self.param_or_default(params, 'optimizer', self.get_default_optimizer())
-        weights = self.param_or_default(params, 'weights', None)
-        regularizer = self.param_or_default(params, 'regularizer', self.get_default_regularizer())
+        optimizer = self.param_or_default(config, 'optimizer', self.get_default_optimizer())
+        weights = self.param_or_default(config, 'weights', None)
+        regularizer = self.param_or_default(config, 'regularizer', self.get_default_regularizer())
         
         feat_input = Input(shape=(None,), dtype='int32', name='Main_Input')
         
         if weights is None:
-            x = Embedding(input_dim=vocab_size, output_dim=params['embed_dim'], name='Embedding')(feat_input)
+            x = Embedding(input_dim=vocab_size, output_dim=config['embed_dim'], name='Embedding')(feat_input)
         else:
             print("Using pre-trained embeddings in bilstm model")
-            x = Embedding(input_dim=vocab_size, output_dim=embed_dim, weights=[params['weights']])(feat_input)
+            x = Embedding(input_dim=vocab_size, output_dim=config['embed_dim'], weights=[config['weights']])(feat_input)
         
         right = left = x
         for layer_width in layers:
@@ -79,13 +81,10 @@ class LstmEntityModel(OptimizableModel):
         config['batch_size'] = 64
         return config
                
-    def run_one_eval(self, epochs, config, params):
-        train_x = params['train_x']
-        train_y = params['train_y']
-        valid_x = params['valid_x']
-        valid_y = params['valid_y']
-        model, history = self.train_model_for_data(train_x, train_y, epochs, config, params)
-        return history.history['loss'][-1]
+    def run_one_eval(self, train_x, train_y, valid_x, valid_y, epochs, config):
+        model, history = self.train_model_for_data(train_x, train_y, epochs, config, valid=0.1)
+        loss = model.evaluate(valid_x, valid_y)
+        return loss
 
     def read_training_instances(self, working_dir):
         ## our inputs use the ctakes/cleartk standard for sequence input: 
@@ -101,10 +100,8 @@ class LstmEntityModel(OptimizableModel):
     def read_test_instance(self, line, num_feats=-1):
         feats = [ctk_io.read_bio_feats_with_alphabet(feat, self.feats_alphabet) for feat in line.split()]
 
-    def train_model_for_data(self, train_x, train_y, epochs, config, params={}):
+    def train_model_for_data(self, train_x, train_y, epochs, config, valid=0.1):
         vocab_size = train_x.max() + 1
-        params['layers'] = config['layers']
-        params['embed_dim'] = config['embed_dim']
         num_outputs = 0
         if train_y.ndim == 1:
             num_outputs = 1
@@ -113,12 +110,12 @@ class LstmEntityModel(OptimizableModel):
         else:
             num_outputs = train_y.shape[1]
             
-        model = self.get_model(-1, vocab_size, num_outputs, params)
+        model = self.get_model(-1, vocab_size, num_outputs, config)
         history = model.fit(train_x,
             train_y,
             nb_epoch=epochs,
             batch_size=config['batch_size'],
-            validation_split=0.1,
+            validation_split=valid,
             callbacks=[nn_models.get_early_stopper()],
             verbose=1)
         return model, history
@@ -171,7 +168,12 @@ def main(args):
                 print("Exception %s" % (e) )
     elif args[0] == 'optimize':
         working_dir = args[1]
-        
+        model = read_model(working_dir)
+        train_x, train_y = model.read_training_instances(working_dir)
+        model = LstmEntityModel()
+        optim = RandomSearch(model, train_x, train_y)
+        best_model = optim.optimize()
+        print("Best config: %s" % best_config)
     else:
         sys.stderr.write("Do not recognize args[0] command argument: %s\n" % (args[0]))
         sys.exit(-1)
