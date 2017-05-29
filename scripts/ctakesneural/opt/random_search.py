@@ -5,7 +5,7 @@
 
 import numpy as np
 import time
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 
 class RandomSearch:
     def __init__(self, model, train_x, train_y):

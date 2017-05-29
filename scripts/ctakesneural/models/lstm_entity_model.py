@@ -7,7 +7,8 @@ from ctakesneural.opt.random_search import RandomSearch
 
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model, load_model
-from keras.layers import Input, Dense, Embedding, Merge, LSTM
+from keras.layers import Input, Dense, Embedding, LSTM
+from keras.layers.merge import Concatenate
 
 import numpy as np
 import os.path
@@ -46,10 +47,10 @@ class LstmEntityModel(OptimizableModel):
         right = left = x
         for layer_width in layers:
             ## TODO - see if default LSTM activation is suitable, does it need to be config/param?
-            left = LSTM(layer_width, return_sequences=False, go_backwards=False, W_regularizer=regularizer, U_regularizer=regularizer, name='forward_lstm')(left)
-            right = LSTM(layer_width, return_sequences=False, go_backwards=True, W_regularizer=regularizer, U_regularizer=regularizer, name='backward_lstm')(right)
+            left = LSTM(layer_width, return_sequences=False, go_backwards=False, recurrent_regularizer=regularizer, activity_regularizer=regularizer, name='forward_lstm')(left)
+            right = LSTM(layer_width, return_sequences=False, go_backwards=True, recurrent_regularizer=regularizer, activity_regularizer=regularizer, name='backward_lstm')(right)
         
-        x = Merge(mode='concat', name='merge_lstms')([left, right])
+        x = Concatenate(name='merge_lstms')([left, right])
         
         if num_outputs == 1:
             out_activation = 'sigmoid' 
@@ -60,7 +61,7 @@ class LstmEntityModel(OptimizableModel):
         
         output = Dense(num_outputs, activation=out_activation, name='dense_output')(x)
         
-        model = Model(input=feat_input, output = output)
+        model = Model(inputs=feat_input, outputs = output)
         model.compile(optimizer=optimizer,
                       loss = loss,
                       metrics=['accuracy'])
@@ -76,15 +77,15 @@ class LstmEntityModel(OptimizableModel):
 
     def get_default_config(self):
         config = {}
-        config['layers'] = (100,)
-        config['embed_dim'] = 100
-        config['batch_size'] = 64
+        config['layers'] = (50,)
+        config['embed_dim'] = 10
+        config['batch_size'] = 32
         return config
                
     def run_one_eval(self, train_x, train_y, valid_x, valid_y, epochs, config):
         model, history = self.train_model_for_data(train_x, train_y, epochs, config, valid=0.1)
         loss = model.evaluate(valid_x, valid_y)
-        return loss
+        return loss[0]
 
     def read_training_instances(self, working_dir):
         ## our inputs use the ctakes/cleartk standard for sequence input: 
@@ -113,7 +114,7 @@ class LstmEntityModel(OptimizableModel):
         model = self.get_model(-1, vocab_size, num_outputs, config)
         history = model.fit(train_x,
             train_y,
-            nb_epoch=epochs,
+            epochs=epochs,
             batch_size=config['batch_size'],
             validation_split=valid,
             callbacks=[nn_models.get_early_stopper()],
@@ -168,12 +169,11 @@ def main(args):
                 print("Exception %s" % (e) )
     elif args[0] == 'optimize':
         working_dir = args[1]
-        model = read_model(working_dir)
-        train_x, train_y = model.read_training_instances(working_dir)
         model = LstmEntityModel()
+        train_x, train_y = model.read_training_instances(working_dir)
         optim = RandomSearch(model, train_x, train_y)
         best_model = optim.optimize()
-        print("Best config: %s" % best_config)
+        print("Best config: %s" % best_model)
     else:
         sys.stderr.write("Do not recognize args[0] command argument: %s\n" % (args[0]))
         sys.exit(-1)

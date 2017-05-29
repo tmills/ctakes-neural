@@ -2,12 +2,12 @@
 
 from keras.models import Sequential, Model, load_model
 from keras.layers import Input, Dense, Dropout, Activation, Convolution1D, MaxPooling1D, Lambda, Embedding, Merge
-from keras.layers import SimpleRNN, LSTM, TimeDistributedDense
+from keras.layers import SimpleRNN, LSTM
 from keras.layers.wrappers import TimeDistributed
 from keras.optimizers import SGD, RMSprop
 from keras import backend as K
 from keras.callbacks import EarlyStopping
-from keras.regularizers import WeightRegularizer, l1, l2
+from keras.regularizers import l1, l2, l1_l2
 from zipfile import ZipFile
 import os.path
 import pickle
@@ -285,7 +285,7 @@ def max_1d(X):
     return K.max(X, axis=1)
 
 def get_regularizer(l1=0.01, l2=0.01):
-    return WeightRegularizer(l1=l1, l2=l2)
+    return l1_l2(l1=l1, l2=l2)
 
 class OptimizableModel:
     def get_random_config(self):
@@ -307,7 +307,7 @@ class OptimizableModel:
         return SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
     def get_default_regularizer(self):
-        return WeightRegularizer(l2=1.0)
+        return l2(1.0)
 
     def param_or_default(self, dict, param, default):
         if dict.has_key(param):
