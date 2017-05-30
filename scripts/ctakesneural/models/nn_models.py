@@ -302,6 +302,38 @@ class OptimizableModel:
     
     def read_test_instance(self, line):
         raise NotImplementedError("Subclass should implement this to turn a line of test data into a vector for classification.")
+
+    ## This might be general to all models?
+    def train_model_for_data(self, train_x, train_y, epochs, config, valid=0.1):
+        vocab_size = train_x.max() + 1
+        num_outputs = 0
+        if train_y.ndim == 1:
+            num_outputs = 1
+        elif train_y.shape[1] == 1:
+            num_outputs = 1
+        else:
+            num_outputs = train_y.shape[1]
+            
+        model = self.get_model(train_x.shape, vocab_size, num_outputs, config)
+        history = model.fit(train_x,
+            train_y,
+            nb_epoch=epochs,
+            batch_size=config['batch_size'],
+            validation_split=valid,
+            callbacks=[get_early_stopper()],
+            verbose=1)
+        return model, history
+    
+    ## This might be general to all models?
+    def write_model(self, working_dir, trained_model):
+        trained_model.save(os.path.join(working_dir, 'model_weights.h5'), overwrite=True)
+        fn = open(os.path.join(working_dir, 'model.pkl'), 'w')
+        pickle.dump(self, fn)
+        fn.close()
+
+        with ZipFile(os.path.join(working_dir, 'script.model'), 'w') as myzip:
+            myzip.write(os.path.join(working_dir, 'model_weights.h5'), 'model_weights.h5')
+            myzip.write(os.path.join(working_dir, 'model.pkl'), 'model.pkl')
     
     def get_default_optimizer(self):
         return SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 from ctakesneural.models import nn_models
-from ctakesneural.models.nn_models import OptimizableModel, read_model
+from ctakesneural.models.nn_models import read_model
+from ctakesneural.models.entity_model import EntityModel
 from ctakesneural.io import cleartk_io as ctk_io
 from ctakesneural.opt.random_search import RandomSearch
 
@@ -18,7 +19,7 @@ import sys
 from zipfile import ZipFile
 
 
-class LstmEntityModel(OptimizableModel):
+class LstmEntityModel(EntityModel):
     def __init__(self, configs=None):
         if configs is None:
             ## Default is not smart -- single layer with between 50 and 1000 nodes
@@ -87,62 +88,6 @@ class LstmEntityModel(OptimizableModel):
         loss = model.evaluate(valid_x, valid_y)
         return loss[0]
 
-    def read_training_instances(self, working_dir):
-        ## our inputs use the ctakes/cleartk standard for sequence input: 
-        ## label | token1 * <e> [entity* ]</e> token2 *
-        (labels, label_alphabet, feats, feats_alphabet) = ctk_io.read_token_sequence_data(working_dir)
-        train_y = np.array(labels)
-        train_y, indices = ctk_io.flatten_outputs(train_y)
-                   
-        self.label_alphabet = label_alphabet
-        self.feats_alphabet = feats_alphabet
-        return feats, train_y
-    
-    def read_test_instance(self, line, num_feats=-1):
-        feats = [ctk_io.read_bio_feats_with_alphabet(feat, self.feats_alphabet) for feat in line.split()]
-
-    def train_model_for_data(self, train_x, train_y, epochs, config, valid=0.1):
-        vocab_size = train_x.max() + 1
-        num_outputs = 0
-        if train_y.ndim == 1:
-            num_outputs = 1
-        elif train_y.shape[1] == 1:
-            num_outputs = 1
-        else:
-            num_outputs = train_y.shape[1]
-            
-        model = self.get_model(-1, vocab_size, num_outputs, config)
-        history = model.fit(train_x,
-            train_y,
-            epochs=epochs,
-            batch_size=config['batch_size'],
-            validation_split=valid,
-            callbacks=[nn_models.get_early_stopper()],
-            verbose=1)
-        return model, history
-    
-    def write_model(self, working_dir, trained_model):
-        trained_model.save(os.path.join(working_dir, 'model_weights.h5'), overwrite=True)
-        fn = open(os.path.join(working_dir, 'model.pkl'), 'w')
-        pickle.dump(self, fn)
-        fn.close()
-
-        with ZipFile(os.path.join(working_dir, 'script.model'), 'w') as myzip:
-            myzip.write(os.path.join(working_dir, 'model_weights.h5'), 'model_weights.h5')
-            myzip.write(os.path.join(working_dir, 'model.pkl'), 'model.pkl')
-
-    def classify_line(self, line):
-        feat_seq = ctk_io.string_to_feature_sequence2(line.split(), self.feats_alphabet, read_only=True)
-        ctk_io.fix_instance_len( feat_seq , len(feat_seq)+2)
-        feats = [feat_seq]
-        outcomes = []
-        out = self.keras_model.predict( np.array(feats), batch_size=1, verbose=0)
-        if len(out[0]) == 1:
-            pred_class = 1 if out[0][0] > 0.5 else 0
-        else:
-            pred_class = out[0].argmax()
-         
-        return self.label_lookup[pred_class]
 
 def main(args):
     if args[0] == 'train':
