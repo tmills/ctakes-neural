@@ -317,7 +317,7 @@ class OptimizableModel:
         model = self.get_model(train_x.shape, vocab_size, num_outputs, config)
         history = model.fit(train_x,
             train_y,
-            nb_epoch=epochs,
+            epochs=epochs,
             batch_size=config['batch_size'],
             validation_split=valid,
             callbacks=[get_early_stopper()],

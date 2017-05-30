@@ -38,7 +38,7 @@ class CnnEntityModel(EntityModel):
         config['embed_dim'] = random.choice(self.configs['embed_dim'])
         config['batch_size'] = random.choice(self.configs['batch_size'])
         config['filters'] = random.choice(self.configs['filters'])
-        config['width'] = random.choice(self.widths['widths'])
+        config['width'] = random.choice(self.configs['widths'])
         return config
     
     def get_default_config(self):
@@ -66,7 +66,7 @@ class CnnEntityModel(EntityModel):
         
         convs = []
         for width in config['width']:
-            conv = Convolution1D(conv_layers[0], width, activation='relu', init='uniform')(x)
+            conv = Convolution1D(conv_layers[0], width, activation='relu', kernel_initializer='uniform')(x)
             pooled = Lambda(max_1d, output_shape=(conv_layers[0],))(conv)
             convs.append(pooled)
         
@@ -77,8 +77,8 @@ class CnnEntityModel(EntityModel):
     
         for nb_filter in conv_layers[1:]:
             convs = []
-            for width in filter_widths:
-                conv = Convolution1D(nb_filter, filter_width, activation='relu', init='uniform')(x)    
+            for width in config['width']:
+                conv = Convolution1D(nb_filter, width, activation='relu', kernel_initializer='uniform')(x)
                 pooled = Lambda(max_1d, output_shape=(nb_filter,))(conv)
                 convs.append(pooled)
             
@@ -88,16 +88,16 @@ class CnnEntityModel(EntityModel):
                 x = convs[0]
            
         for num_nodes in config['layers']:
-            x = Dense(num_nodes, init='uniform')(x)
+            x = Dense(num_nodes, kernel_initializer='uniform')(x)
             x = Activation('relu')(x)
             x = Dropout(0.5)(x)
     
         out_name = "Output"
         if num_outputs == 1:
-            output = Dense(1, init='uniform', activation='sigmoid', name=out_name)(x)
+            output = Dense(1, kernel_initializer='uniform', activation='sigmoid', name=out_name)(x)
             loss = 'binary_crossentropy'
         else:
-            output = Dense(num_outputs, init='uniform', activation='softmax', name=out_name)(x)
+            output = Dense(num_outputs, kernel_initializer='uniform', activation='softmax', name=out_name)(x)
             loss='categorical_crossentropy'
     
         sgd = get_mlp_optimizer()
