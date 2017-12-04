@@ -138,7 +138,7 @@ def main(args):
         train_x, train_y = model.read_training_instances(working_dir)
         model = CnnEntityModel()
         optim = RandomSearch(model, train_x, train_y)
-        best_model = optim.optimize()
+        best_config = optim.optimize()
         print("Best config: %s" % best_config)
     else:
         sys.stderr.write("Do not recognize args[0] command argument: %s\n" % (args[0]))
