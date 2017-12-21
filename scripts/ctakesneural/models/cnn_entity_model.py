@@ -101,7 +101,7 @@ class CnnEntityModel(EntityModel):
             loss='categorical_crossentropy'
     
         sgd = get_mlp_optimizer()
-        model = Model(input=input, output=output)
+        model = Model(inputs=input, outputs=output)
             
         model.compile(optimizer = sgd,
                       loss = loss)

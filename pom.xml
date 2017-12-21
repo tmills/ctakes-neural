@@ -3,20 +3,19 @@
   <parent>
     <groupId>org.apache.ctakes</groupId>
     <artifactId>ctakes</artifactId>
-    <version>3.2.3-SNAPSHOT</version>
+    <version>4.0.1-SNAPSHOT</version>
   </parent>
   <artifactId>ctakes-neural</artifactId>
   <name>cTAKES Neural Network Utilities and Interfaces</name>
-  <version>3.2.3-SNAPSHOT</version>
+  <version>4.0.1-SNAPSHOT</version>
   <dependencies>
-  	<dependency>
-  		<groupId>org.cleartk</groupId>
-  		<artifactId>cleartk-ml-script</artifactId>
-  		<version>2.0.1-SNAPSHOT</version>
-  	</dependency>
   	<dependency>
   		<groupId>org.apache.ctakes</groupId>
   		<artifactId>ctakes-type-system</artifactId>
   	</dependency>
+      <dependency>
+          <groupId>org.cleartk</groupId>
+          <artifactId>cleartk-ml</artifactId>
+      </dependency>
   </dependencies>
 </project>

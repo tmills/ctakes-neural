@@ -301,7 +301,8 @@ def fix_instance_len(inst, req_len):
             inst.append(0)
     elif len(inst) > req_len:
         ## Instance is too long -- can happen at test time -- truncate to the end of the sequence
-        inst = inst[-req_len:]
+        while len(inst) > req_len:
+            inst.pop(0)
     
 def split_sequence_line(line):
     sections = line.split(' | ')

@@ -2,8 +2,8 @@ package org.apache.ctakes.neural;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-//import java.util.Locale;
 
+import org.apache.ctakes.neural.cleartk.ScriptStringOutcomeClassifierBuilder;
 import org.apache.uima.UimaContext;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.factory.initializable.Initializable;
@@ -13,7 +13,6 @@ import org.cleartk.ml.Feature;
 import org.cleartk.ml.Instance;
 import org.cleartk.ml.encoder.outcome.StringToIntegerOutcomeEncoder;
 import org.cleartk.ml.jar.DataWriter_ImplBase;
-import org.cleartk.ml.script.ScriptStringOutcomeClassifierBuilder;
 import org.cleartk.ml.util.featurevector.FeatureVector;
 
 public class ScriptStringFeatureDataWriter
