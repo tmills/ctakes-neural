@@ -43,10 +43,10 @@ class CnnEntityModel(EntityModel):
     
     def get_default_config(self):
         config = {}
-        config['layers'] = (100,)
+        config['layers'] = (500,)
         config['embed_dim'] = 100
-        config['batch_size'] = 64
-        config['filters'] = (128,)
+        config['batch_size'] = 256
+        config['filters'] = (2048,)
         config['width'] = (2,3)
         return config
     
@@ -110,6 +110,10 @@ class CnnEntityModel(EntityModel):
         
 
 def main(args):
+    if len(args) < 2:
+        sys.stderr.write('Two required arguments: <train|classify|optimize> <data directory>\n')
+        sys.exit(-1)
+
     if args[0] == 'train':
         working_dir = args[1]
         model = CnnEntityModel()

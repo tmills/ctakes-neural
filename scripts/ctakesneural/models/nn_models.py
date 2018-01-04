@@ -276,7 +276,7 @@ def get_bio_bilstm_model(dimension, vocab_size, num_outputs, layers=(128,), embe
     return model
 
 def get_early_stopper():
-    return EarlyStopping(monitor='val_loss', patience=2, verbose=0, mode='auto')
+    return EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='auto')
     
 def get_mlp_optimizer():
     return SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
