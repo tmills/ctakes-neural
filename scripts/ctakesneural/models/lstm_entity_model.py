@@ -90,6 +90,10 @@ class LstmEntityModel(EntityModel):
 
 
 def main(args):
+    if len(args) < 2:
+        sys.stderr.write('Two required arguments: <train|classify|optimize> <data directory>\n')
+        sys.exit(-1)
+
     if args[0] == 'train':
         working_dir = args[1]
         model = LstmEntityModel()
