@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from ctakesneural.models import nn_models
-from ctakesneural.models.nn_models import read_model
+from ctakesneural.models.nn_models import read_keras_model
 from ctakesneural.models.entity_model import EntityModel
 from ctakesneural.io import cleartk_io as ctk_io
 from ctakesneural.opt.random_search import RandomSearch
@@ -103,7 +103,7 @@ def main(args):
         
     elif args[0] == 'classify':
         working_dir = args[1]
-        model = read_model(working_dir)
+        model = read_keras_model(working_dir)
      
         while True:
             try:
