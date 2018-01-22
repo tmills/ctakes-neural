@@ -370,12 +370,12 @@ class OptimizableModel:
         else:
             return default
         
-def read_model(working_dir):
+def read_keras_model(working_dir):
     with ZipFile(os.path.join(working_dir, 'script.model'), 'r') as myzip:
         myzip.extract('model_weights.h5', working_dir)
         myzip.extract('model.pkl', working_dir)
 
     model = pickle.load( open(os.path.join(working_dir, 'model.pkl'), 'rb' ) )
-    model.keras_model = load_model(os.path.join(working_dir, "model_weights.h5"))
+    model.framework_model = load_model(os.path.join(working_dir, "model_weights.h5"))
     model.label_lookup = {val:key for (key,val) in model.label_alphabet.iteritems()}
     return model

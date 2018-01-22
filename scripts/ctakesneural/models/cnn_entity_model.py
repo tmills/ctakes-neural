@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from ctakesneural.models import nn_models
-from ctakesneural.models.nn_models import read_model, max_1d
+from ctakesneural.models.nn_models import read_keras_model, max_1d, get_mlp_optimizer
 from ctakesneural.models.entity_model import EntityModel
 from ctakesneural.io import cleartk_io as ctk_io
 from ctakesneural.opt.random_search import RandomSearch
@@ -138,7 +138,7 @@ def main(args):
         
     elif args[0] == 'classify':
         working_dir = args[1]
-        model = read_model(working_dir)
+        model = read_keras_model(working_dir)
      
         while True:
             try:
@@ -153,9 +153,8 @@ def main(args):
                 print("Exception %s" % (e) )
     elif args[0] == 'optimize':
         working_dir = args[1]
-        model = read_model(working_dir)
-        train_x, train_y = model.read_training_instances(working_dir)
         model = CnnEntityModel()
+        train_x, train_y = model.read_training_instances(working_dir)
         optim = RandomSearch(model, train_x, train_y)
         best_config = optim.optimize()
         print("Best config: %s" % best_config)
