@@ -59,7 +59,7 @@ public class StreamHandlerThread extends Thread {
     try {
       while ((line = reader.readLine()) != null) {
         if(line.length() > 0) {
-          logger.log(Level.INFO, line);
+          logger.log(Level.INFO, line.trim());
         }
       }
     } catch (IOException e) {

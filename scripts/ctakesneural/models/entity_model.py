@@ -23,7 +23,8 @@ class EntityModel(OptimizableModel):
 
     def classify_line(self, line):
         feat_seq = ctk_io.string_to_feature_sequence2(line.split(), self.feats_alphabet, read_only=True)
-        ctk_io.fix_instance_len( feat_seq , self.keras_model.input_shape[1])
+        if not self.keras_model.input_shape[1] is None:
+            ctk_io.fix_instance_len( feat_seq , self.keras_model.input_shape[1])
         feats = [feat_seq]
         outcomes = []
         out = self.keras_model.predict( np.array(feats), batch_size=1, verbose=0)
