@@ -14,10 +14,10 @@ class RandomSearch:
         self.model = model
         self.train_x, self.valid_x, self.train_y, self.valid_y = train_test_split(train_x, train_y, test_size=0.2, random_state=18)
         
-    def optimize(self, max_iter=81):
+    def optimize(self, max_iter=256):
         start_time = time.time()
         
-        eta = 3 # defines downsampling rate (default=3)
+        eta = 4 # defines downsampling rate (default=3)
         logeta = lambda x: np.log(x)/np.log(eta)
         s_max = int(logeta(max_iter))  # number of unique executions of Successive Halving (minus one)
         B = (s_max+1)*max_iter  # total number of iterations (without reuse) per execution of Succesive Halving (n,r)
@@ -37,7 +37,7 @@ class RandomSearch:
                 # Run each of the n_i configs for r_i iterations and keep best n_i/eta
                 n_i = n*eta**(-i)
                 r_i = int( r*eta**(i) )
-                val_losses = [ self.model.run_one_eval(self.train_x, self.train_y, self.valid_x, self.valid_y, r_i, t) for t in T ]
+                val_losses = [ self.model.run_one_eval(self.train_x, self.train_y, self.valid_x, self.valid_y, r_i, t, early_stopping=True) for t in T ]
                 T = [ T[i] for i in np.argsort(val_losses)[0:int( n_i/eta )] ]
                 #print("After iteration %d T has %d configurations" % (s, len(T)))
                 

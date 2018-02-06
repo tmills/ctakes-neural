@@ -6,7 +6,7 @@ from keras.layers import SimpleRNN, LSTM
 from keras.layers.wrappers import TimeDistributed
 from keras.optimizers import SGD, RMSprop
 from keras import backend as K
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from keras.regularizers import l1, l2, l1_l2
 from zipfile import ZipFile
 import os.path
@@ -276,7 +276,7 @@ def get_bio_bilstm_model(dimension, vocab_size, num_outputs, layers=(128,), embe
     return model
 
 def get_early_stopper():
-    return EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='auto')
+    return EarlyStopping(monitor='val_loss', patience=20, verbose=0, mode='auto')
     
 def get_mlp_optimizer():
     return SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
@@ -286,6 +286,9 @@ def max_1d(X):
 
 def get_regularizer(l1=0.01, l2=0.01):
     return l1_l2(l1=l1, l2=l2)
+
+def get_checkpointer(fileprefix):
+    return ModelCheckpoint('%s.h5' % fileprefix, monitor='val_loss', save_best_only=True)
 
 class OptimizableModel:
     def get_random_config(self):
@@ -304,24 +307,43 @@ class OptimizableModel:
         raise NotImplementedError("Subclass should implement this to turn a line of test data into a vector for classification.")
 
     ## This might be general to all models?
-    def train_model_for_data(self, train_x, train_y, epochs, config, valid=0.1):
+    def train_model_for_data(self, train_x, train_y, epochs, config, valid=0.1, use_class_weights=True, checkpoint_prefix=None, early_stopping=False):
         vocab_size = train_x.max() + 1
+        class_weights = {}
         num_outputs = 0
+        callbacks = [] # [ReduceLROnPlateau(monitor='val_loss', patience=10, verbose=1)]
+        if early_stopping:
+            callbacks.append(get_early_stopper())
+
         if train_y.ndim == 1:
             num_outputs = 1
+            ## 1-dim array of 0 and 1
+            one_proportion = float(train_y.sum()) / len(train_y)
+            one_weight = 0.5 / one_proportion
+            zero_weight = 0.5 / (1. - one_proportion)
+            class_weights[0] = zero_weight
+            class_weights[1] = one_weight
         elif train_y.shape[1] == 1:
             num_outputs = 1
         else:
             num_outputs = train_y.shape[1]
-            
+
+        if not checkpoint_prefix is None:
+            callbacks.append(get_checkpointer(checkpoint_prefix))
+
         model = self.get_model(train_x.shape, vocab_size, num_outputs, config)
         history = model.fit(train_x,
             train_y,
             epochs=epochs,
             batch_size=config['batch_size'],
             validation_split=valid,
-            callbacks=[get_early_stopper()],
-            verbose=1)
+            callbacks=callbacks,
+            verbose=2)
+
+        if not checkpoint_prefix is None:
+            print("Loading best checkpointed model:")
+            model = load_model(checkpoint_prefix + ".h5")
+
         return model, history
     
     ## This might be general to all models?
@@ -339,7 +361,7 @@ class OptimizableModel:
         return SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
     def get_default_regularizer(self):
-        return l2(1.0)
+        return l2(0.1)
 
     def param_or_default(self, dict, param, default):
         if param in dict:
