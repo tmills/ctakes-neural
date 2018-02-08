@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from ctakesneural.models import nn_models
-from ctakesneural.models.nn_models import read_model, max_1d, get_mlp_optimizer
+from ctakesneural.models.nn_models import read_model, max_1d
 from ctakesneural.models.entity_model import EntityModel
 from ctakesneural.io import cleartk_io as ctk_io
 from ctakesneural.opt.random_search import RandomSearch
@@ -10,6 +10,8 @@ from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model, load_model
 from keras.layers import Input, Dense, Dropout, Activation, Convolution1D, MaxPooling1D, Lambda, Embedding
 from keras.layers.merge import Concatenate
+from keras.regularizers import l2
+from keras.optimizers import SGD, Adam
 
 import numpy as np
 import os.path
@@ -25,9 +27,9 @@ class CnnEntityModel(EntityModel):
             ## Default is not smart -- single layer with between 50 and 1000 nodes
             self.configs = {}
             self.configs['embed_dim'] = (10,25,50,100,200)
-            self.configs['layers'] = ( (50,), (100,), (200,), (500,), (1000,) )
+            self.configs['layers'] = ( (25,), (50,), (100,), (200,), (500,), (1000,) )
             self.configs['batch_size'] = (32, 64, 128, 256)
-            self.configs['filters'] = ((64,), (128,), (256,), (512,), (1024,), (2048,))
+            self.configs['filters'] = ((64,), (128,), (256,), (512,), (1024,), (2048,), (4096,))
             self.configs['widths'] = ( (2,), (3,), (4,), (2,3), (3,4), (2,3,4))
         else:
             self.configs = configs
@@ -43,11 +45,14 @@ class CnnEntityModel(EntityModel):
     
     def get_default_config(self):
         config = {}
-        config['layers'] = (500,)
-        config['embed_dim'] = 100
-        config['batch_size'] = 256
+        config['layers'] = (50,)
+        config['embed_dim'] = 50
+        config['batch_size'] = 128
         config['filters'] = (2048,)
-        config['width'] = (2,3)
+        config['width'] = (3,4)
+        config['optimizer'] = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+        config['regularizer'] = l2(0.01)
+
         return config
     
     def run_one_eval(self, train_x, train_y, valid_x, valid_y, epochs, config):
@@ -64,9 +69,11 @@ class CnnEntityModel(EntityModel):
         regularizer = self.param_or_default(config, 'regularizer', self.get_default_regularizer())
         conv_layers = config['filters']
         
+        print("Model selected has optimizer %s and regularizer %s" % (optimizer.get_config(), regularizer.get_config()))
+
         convs = []
         for width in config['width']:
-            conv = Convolution1D(conv_layers[0], width, activation='relu', kernel_initializer='uniform')(x)
+            conv = Convolution1D(conv_layers[0], width, activation='relu', kernel_initializer='glorot_uniform')(x)
             pooled = Lambda(max_1d, output_shape=(conv_layers[0],))(conv)
             convs.append(pooled)
         
@@ -75,35 +82,35 @@ class CnnEntityModel(EntityModel):
         else:
             x = convs[0]
     
-        for nb_filter in conv_layers[1:]:
-            convs = []
-            for width in config['width']:
-                conv = Convolution1D(nb_filter, width, activation='relu', kernel_initializer='uniform')(x)
-                pooled = Lambda(max_1d, output_shape=(nb_filter,))(conv)
-                convs.append(pooled)
+        # This doesn't really make sense here with pooling happening unconditionally above.
+        # for nb_filter in conv_layers[1:]:
+        #     convs = []
+        #     for width in config['width']:
+        #         conv = Convolution1D(nb_filter, width, activation='relu', kernel_initializer='glorot_uniform', kernel_regularizer=regularizer)(x)
+        #         pooled = Lambda(max_1d, output_shape=(nb_filter,))(conv)
+        #         convs.append(pooled)
             
-            if len(convs) > 1:
-                x = Concatenate()(convs)
-            else:
-                x = convs[0]
+        #     if len(convs) > 1:
+        #         x = Concatenate()(convs)
+        #     else:
+        #         x = convs[0]
            
         for num_nodes in config['layers']:
-            x = Dense(num_nodes, kernel_initializer='uniform')(x)
+            x = Dense(num_nodes, kernel_initializer='glorot_uniform', kernel_regularizer=regularizer)(x)
             x = Activation('relu')(x)
             x = Dropout(0.5)(x)
     
         out_name = "Output"
         if num_outputs == 1:
-            output = Dense(1, kernel_initializer='uniform', activation='sigmoid', name=out_name)(x)
+            output = Dense(1, kernel_initializer='glorot_uniform', activation='sigmoid', name=out_name, kernel_regularizer=regularizer)(x)
             loss = 'binary_crossentropy'
         else:
-            output = Dense(num_outputs, kernel_initializer='uniform', activation='softmax', name=out_name)(x)
+            output = Dense(num_outputs, kernel_initializer='glorot_uniform', activation='softmax', name=out_name, kernel_regularizer=regularizer)(x)
             loss='categorical_crossentropy'
     
-        sgd = get_mlp_optimizer()
         model = Model(inputs=input, outputs=output)
             
-        model.compile(optimizer = sgd,
+        model.compile(optimizer = optimizer,
                       loss = loss)
         
         return model
@@ -118,7 +125,7 @@ def main(args):
         working_dir = args[1]
         model = CnnEntityModel()
         train_x, train_y = model.read_training_instances(working_dir)
-        trained_model, history = model.train_model_for_data(train_x, train_y, 80, model.get_default_config())
+        trained_model, history = model.train_model_for_data(train_x, train_y, 200, model.get_default_config(), checkpoint_prefix='cnn_best_model', early_stopping=True)
         model.write_model(working_dir, trained_model)
         
     elif args[0] == 'classify':
