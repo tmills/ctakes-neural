@@ -29,7 +29,7 @@ class CnnEntityModel(EntityModel):
             self.configs['embed_dim'] = (10,25,50,100,200)
             self.configs['layers'] = ( (25,), (50,), (100,), (200,), (500,), (1000,) )
             self.configs['batch_size'] = (32, 64, 128, 256)
-            self.configs['filters'] = ((64,), (128,), (256,), (512,), (1024,), (2048,), (4096,))
+            self.configs['filters'] = ((64,), (128,), (256,), (512,), (1024,), (2048,), (4096,), (8192,))
             self.configs['widths'] = ( (2,), (3,), (4,), (2,3), (3,4), (2,3,4))
         else:
             self.configs = configs
@@ -48,16 +48,24 @@ class CnnEntityModel(EntityModel):
         config['layers'] = (50,)
         config['embed_dim'] = 50
         config['batch_size'] = 128
-        config['filters'] = (2048,)
-        config['width'] = (3,4)
+        config['filters'] = (64,)
+        config['width'] = (5,)
         config['optimizer'] = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-        config['regularizer'] = l2(0.01)
+        config['regularizer'] = l2(0.001)
 
         return config
+
+    def get_default_optimizer(self):
+        # Override of parent because I've done some experimentation here.
+        return SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+
+    def get_default_regularizer(self):
+        return l2(0.001)
     
     def run_one_eval(self, train_x, train_y, valid_x, valid_y, epochs, config):
         model, history = self.train_model_for_data(train_x, train_y, epochs, config, valid=0.1)
-        loss = model.evaluate(valid_x, valid_y)
+        loss = model.evaluate(valid_x, valid_y, verbose=0)
+        print("Running an eval with config: %s had validation loss %f" % (str(config), loss))
         return loss
 
     def get_model(self, dimension, vocab_size, num_outputs, config):
@@ -69,11 +77,11 @@ class CnnEntityModel(EntityModel):
         regularizer = self.param_or_default(config, 'regularizer', self.get_default_regularizer())
         conv_layers = config['filters']
         
-        print("Model selected has optimizer %s and regularizer %s" % (optimizer.get_config(), regularizer.get_config()))
+        #print("Model selected has optimizer %s and regularizer %s" % (optimizer.get_config(), regularizer.get_config()))
 
         convs = []
         for width in config['width']:
-            conv = Convolution1D(conv_layers[0], width, activation='relu', kernel_initializer='glorot_uniform')(x)
+            conv = Convolution1D(conv_layers[0], width, activation='relu', kernel_initializer='glorot_uniform', kernel_regularizer=regularizer)(x)
             pooled = Lambda(max_1d, output_shape=(conv_layers[0],))(conv)
             convs.append(pooled)
         

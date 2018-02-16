@@ -98,7 +98,7 @@ def main(args):
         working_dir = args[1]
         model = LstmEntityModel()
         train_x, train_y = model.read_training_instances(working_dir)
-        trained_model, history = model.train_model_for_data(train_x, train_y, 80, model.get_default_config())
+        trained_model, history = model.train_model_for_data(train_x, train_y, 200, model.get_default_config())
         model.write_model(working_dir, trained_model)
         
     elif args[0] == 'classify':

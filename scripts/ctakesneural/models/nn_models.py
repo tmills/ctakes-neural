@@ -365,6 +365,7 @@ class OptimizableModel:
 
     def param_or_default(self, dict, param, default):
         if param in dict:
+            print("Found param item %s in config" % (param))
             return dict[param]
         else:
             return default
@@ -374,7 +375,7 @@ def read_model(working_dir):
         myzip.extract('model_weights.h5', working_dir)
         myzip.extract('model.pkl', working_dir)
 
-    lstm_model = pickle.load( open(os.path.join(working_dir, 'model.pkl'), 'rb' ) )
-    lstm_model.keras_model = load_model(os.path.join(working_dir, "model_weights.h5"))
-    lstm_model.label_lookup = {val:key for (key,val) in lstm_model.label_alphabet.iteritems()}
-    return lstm_model
+    model = pickle.load( open(os.path.join(working_dir, 'model.pkl'), 'rb' ) )
+    model.keras_model = load_model(os.path.join(working_dir, "model_weights.h5"))
+    model.label_lookup = {val:key for (key,val) in model.label_alphabet.iteritems()}
+    return model

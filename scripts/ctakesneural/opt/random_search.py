@@ -37,7 +37,7 @@ class RandomSearch:
                 # Run each of the n_i configs for r_i iterations and keep best n_i/eta
                 n_i = n*eta**(-i)
                 r_i = int( r*eta**(i) )
-                val_losses = [ self.model.run_one_eval(self.train_x, self.train_y, self.valid_x, self.valid_y, r_i, t, early_stopping=True) for t in T ]
+                val_losses = [ self.model.run_one_eval(self.train_x, self.train_y, self.valid_x, self.valid_y, r_i, t) for t in T ]
                 T = [ T[i] for i in np.argsort(val_losses)[0:int( n_i/eta )] ]
                 #print("After iteration %d T has %d configurations" % (s, len(T)))
                 
