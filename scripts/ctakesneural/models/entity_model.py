@@ -5,7 +5,13 @@ from ctakesneural.io import cleartk_io as ctk_io
 
 import numpy as np
 
-class EntityModel(OptimizableModel):
+class EntityModel:
+
+    def __init__(self):
+        self.framework_model = None
+        self.label_alphabet = None
+        self.feats_alphabet = None
+        self.label_lookup = None
 
     def read_training_instances(self, working_dir):
         ## our inputs use the ctakes/cleartk standard for sequence input: 
@@ -28,8 +34,10 @@ class EntityModel(OptimizableModel):
 
         feats = [feat_seq]
         outcomes = []
-        out = self.keras_model.predict( np.array(feats), batch_size=1, verbose=0)
-        if len(out[0]) == 1:
+        out = self.predict_one_instance( np.array(feats) ) #, batch_size=1, verbose=0)
+        if out.ndim == 1:
+            pred_class = 1 if out[0] > 0.5 else 0
+        elif len(out[0]) == 1:
             pred_class = 1 if out[0][0] > 0.5 else 0
         else:
             pred_class = out[0].argmax()
@@ -37,4 +45,4 @@ class EntityModel(OptimizableModel):
         return self.label_lookup[pred_class]
 
     def get_standard_input_len(self):
-        return self.keras_model.input_shape[1]
+        return self.framework_model.input_shape[1]

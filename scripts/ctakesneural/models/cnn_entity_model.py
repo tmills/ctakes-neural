@@ -5,7 +5,9 @@ from ctakesneural.models.nn_models import read_keras_model, max_1d, get_mlp_opti
 from ctakesneural.models.entity_model import EntityModel
 from ctakesneural.io import cleartk_io as ctk_io
 from ctakesneural.opt.random_search import RandomSearch
+from keras_model import KerasModel
 
+from keras import backend as K
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model, load_model
 from keras.layers import Input, Dense, Dropout, Activation, Convolution1D, MaxPooling1D, Lambda, Embedding
@@ -21,7 +23,7 @@ import sys
 from zipfile import ZipFile
 
 
-class CnnEntityModel(EntityModel):
+class CnnEntityModel(EntityModel,KerasModel):
     def __init__(self, configs=None):
         if configs is None:
             ## Default is not smart -- single layer with between 50 and 1000 nodes
@@ -45,19 +47,20 @@ class CnnEntityModel(EntityModel):
     
     def get_default_config(self):
         config = {}
-        config['layers'] = (50,)
-        config['embed_dim'] = 50
-        config['batch_size'] = 128
-        config['filters'] = (64,)
-        config['width'] = (5,)
-        config['optimizer'] = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+        config['layers'] = (1000,)
+        config['embed_dim'] = 10
+        config['batch_size'] = 256
+        config['filters'] = (2048,)
+        config['width'] = (2,)
+        # config['optimizer'] = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
         config['regularizer'] = l2(0.001)
 
         return config
 
     def get_default_optimizer(self):
         # Override of parent because I've done some experimentation here.
-        return SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+        return Adam()
+        # return SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
 
     def get_default_regularizer(self):
         return l2(0.001)
@@ -66,6 +69,8 @@ class CnnEntityModel(EntityModel):
         model, history = self.train_model_for_data(train_x, train_y, epochs, config, valid=0.1)
         loss = model.evaluate(valid_x, valid_y, verbose=0)
         print("Running an eval with config: %s had validation loss %f" % (str(config), loss))
+
+        K.clear_session()
         return loss
 
     def get_model(self, dimension, vocab_size, num_outputs, config):
@@ -122,6 +127,10 @@ class CnnEntityModel(EntityModel):
                       loss = loss)
         
         return model
+    
+    def predict_one_instance(self, X):
+        return self.framework_model.predict(X, batch_size=1, verbose=0)
+
         
 
 def main(args):
@@ -138,7 +147,7 @@ def main(args):
         
     elif args[0] == 'classify':
         working_dir = args[1]
-        model = read_keras_model(working_dir)
+        model = KerasModel.read_model(working_dir)
      
         while True:
             try:

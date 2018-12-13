@@ -3,16 +3,16 @@
   <parent>
     <groupId>org.apache.ctakes</groupId>
     <artifactId>ctakes</artifactId>
-    <version>4.0.1-SNAPSHOT</version>
+    <version>4.0.0</version>
   </parent>
   <artifactId>ctakes-neural</artifactId>
   <name>cTAKES Neural Network Utilities and Interfaces</name>
-  <version>4.0.1-SNAPSHOT</version>
+  <version>4.0.0</version>
   <dependencies>
   	<dependency>
   		<groupId>org.apache.ctakes</groupId>
   		<artifactId>ctakes-type-system</artifactId>
-        <version>4.0.1-SNAPSHOT</version>
+        <version>4.0.0</version>
   	</dependency>
       <dependency>
           <groupId>org.cleartk</groupId>

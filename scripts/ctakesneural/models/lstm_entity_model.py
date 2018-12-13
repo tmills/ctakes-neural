@@ -5,11 +5,13 @@ from ctakesneural.models.nn_models import read_keras_model
 from ctakesneural.models.entity_model import EntityModel
 from ctakesneural.io import cleartk_io as ctk_io
 from ctakesneural.opt.random_search import RandomSearch
+from keras_model import KerasModel
 
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model, load_model
 from keras.layers import Input, Dense, Embedding, LSTM
 from keras.layers.merge import Concatenate
+from keras.optimizers import SGD, Adam
 
 import numpy as np
 import os.path
@@ -19,7 +21,7 @@ import sys
 from zipfile import ZipFile
 
 
-class LstmEntityModel(EntityModel):
+class LstmEntityModel(EntityModel,KerasModel):
     def __init__(self, configs=None):
         if configs is None:
             ## Default is not smart -- single layer with between 50 and 1000 nodes
@@ -80,7 +82,7 @@ class LstmEntityModel(EntityModel):
         config = {}
         config['layers'] = (50,)
         config['embed_dim'] = 10
-        config['batch_size'] = 32
+        config['batch_size'] = 100
         return config
                
     def run_one_eval(self, train_x, train_y, valid_x, valid_y, epochs, config):
@@ -88,6 +90,11 @@ class LstmEntityModel(EntityModel):
         loss = model.evaluate(valid_x, valid_y)
         return loss[0]
 
+    def get_default_optimizer(self):
+        return Adam()
+
+    def predict_one_instance(self, X):
+        return self.framework_model.predict(X, batch_size=1, verbose=0)
 
 def main(args):
     if len(args) < 2:
@@ -98,12 +105,12 @@ def main(args):
         working_dir = args[1]
         model = LstmEntityModel()
         train_x, train_y = model.read_training_instances(working_dir)
-        trained_model, history = model.train_model_for_data(train_x, train_y, 200, model.get_default_config())
+        trained_model, history = model.train_model_for_data(train_x, train_y, 200, model.get_default_config(), early_stopping=True)
         model.write_model(working_dir, trained_model)
         
     elif args[0] == 'classify':
         working_dir = args[1]
-        model = read_keras_model(working_dir)
+        model = KerasModel.read_model(working_dir)
      
         while True:
             try:
